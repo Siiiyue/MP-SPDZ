@@ -1,0 +1,91 @@
+import math
+
+program.use_edabit(True)
+
+def power2round(x, q, d, mod_func):
+    """
+    Power2Round 协议实现
+    :param x: 输入的秘密共享值 [x] (sint)
+    :param q: 模数 q
+    :param d: 截断位数 d
+    :param mod_func: 你已经实现好的 mod 函数
+    :return: ([x_1], [x_0])
+    """
+    
+    # ==========================================
+    # Step 1: Compute x mod q
+    # Invoke Mod protocol with inputs ([x], q)
+    # ==========================================
+    x_prime = mod(x, q)
+    
+    # ==========================================
+    # Step 2: Compute (x mod q) mod^{\pm} 2^d
+    # ==========================================
+    
+    # (a) Compute x'_0 = x' mod 2^d
+    # 这里调用你写好的 mod 函数，或者对于 2 的幂次，
+    # MP-SPDZ 原生支持 x_prime % (2**d) (底层是 BitDec)
+    x_0_prime = mod(x_prime, 2**d) 
+    
+    # (b) & (c) Invoke LTZ and B2A to get [t]
+    # 论文中：[t]_2 = 1{2^{d-1} < x'_0}，然后 B2A 转换为算术共享 [t]
+    # 在 MP-SPDZ 中，直接使用 `>` 运算符即可。
+    # 它会自动调用比较协议，并直接返回算术共享 sint(0) 或 sint(1)
+    t = sint(x_0_prime > (2**(d-1)))
+    
+    # (d) Invoke Mul to compute [x_0]
+    # 公式: [x_0] = (1 - t) * x'_0 + t * (x'_0 - 2^d)
+    # 注意：这里可以代数化简为 x_0 = x_0_prime - t * (2**d)，能省去一次乘法
+    x_0 = x_0_prime - t * (2**d)
+    
+    # ==========================================
+    # Step 3: Compute [x_1] = 2^{-d} * ([x'] - [x_0])
+    # ==========================================
+    # x_1 = (x_prime - x_0) / (2**d)
+    x_1 = (x_prime - x_0) >> d    
+    return x_1, x_0
+
+# ================= 测试代码示例 =================
+def mod(x, gamma, l=64):
+    # Preprocessing
+    m = int(math.ceil(math.log2(gamma)))
+    
+    # 生成 edaBits
+    r_prime, r_prime_bits = sint.get_edabit(m, strict=False)
+    r_double_prime, r_double_prime_bits = sint.get_edabit(l - m, strict=False)
+    
+    # Online Step 1: 掩码并公开
+    offset = 2**(l-1)
+    c_masked = offset + x + gamma * r_double_prime + r_prime
+    c = c_masked.reveal() 
+    
+    # Online Step 2: 明文取模 (修复点)
+    # 必须在取模前减去 offset，或者等价地减去 (offset % gamma)
+    c_prime = (c - offset) % gamma
+    
+    # Step 3 & 4: 判断 r' >= gamma
+    r_prime_int = sbitint.from_vec(r_prime_bits)
+    v_bool = r_prime_int >= gamma 
+    v = sint(v_bool) 
+    
+    # Step 5 & 6: LTZ (Less Than Zero) 判断
+    inner_term = c_prime - r_prime + v * gamma
+    u_bool = inner_term < 0
+    u = sint(u_bool) 
+    
+    # Step 7: 最终输出
+    result = c_prime - r_prime + gamma * (v + u)
+    
+    return result
+
+x_input = sint(64)
+q_val = 3329  # 比如 Kyber 里的 q
+d_val = 4
+
+x_1, x_0 = power2round(x_input, q_val, d_val, mod)
+
+print_ln("Input x = %s", x_input.reveal())
+print_ln("Input q = %s", q_val)
+print_ln("Input d = %s", d_val)
+print_ln("x_1 = %s", x_1.reveal())
+print_ln("x_0 = %s", x_0.reveal())

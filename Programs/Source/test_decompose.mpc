@@ -1,0 +1,82 @@
+import math
+
+def decompose(x, gamma, q):
+    """
+    Decompose protocol to split [x] into HighBits [x_H] and LowBits [x_L].
+    
+    :param x: sint, the input secret shared value
+    :param gamma: int, the base for decomposition
+    :param q: int, the modulus
+    :return: tuple (x_H, x_L)
+    """
+    # Step 1: Compute [x'] = [x mod q]
+    x_prime = mod(x, q, l=64)
+    
+    # Step 2: Compute [x_0] = (x mod q) mod^\pm gamma
+    # (a) Invoke Mod protocol
+    x_prime_0 = mod(x_prime, gamma, l=64)
+    
+    # (b) & (c) Invoke LTZ and B2A 
+    # In MP-SPDZ, '>' automatically returns an arithmetic secret bit (0 or 1)
+    h = x_prime_0 > (gamma / 2)
+    
+    # (d) Compute [x_0]
+    x_0 = (1 - h) * x_prime_0 + h * (x_prime_0 - gamma)
+    
+    # Step 3 & 4: Compute [t]
+    # '==' automatically returns an arithmetic secret bit (0 or 1)
+    t = (x_prime - x_0) == (q - 1)
+    
+    # Step 5: Compute HighBits [x_H]
+    # Note: We use integer division '// gamma' instead of multiplying by inverse 
+    # to ensure it stays in the integer domain and avoids precision/inverse issues.
+    x_H = ((1 - t) * (x_prime - x_0)) * cint(gamma).__invert__
+    
+    # Step 6: Compute LowBits [x_L]
+    x_L = t * (x_0 - 1) + (1 - t) * x_0
+    
+    return x_H, x_L
+
+def mod(x, gamma, l=64):
+    # Preprocessing
+    m = int(math.ceil(math.log2(gamma)))
+    
+    # 生成 edaBits
+    r_prime, r_prime_bits = sint.get_edabit(m, strict=False)
+    r_double_prime, r_double_prime_bits = sint.get_edabit(l - m, strict=False)
+    
+    # Online Step 1: 掩码并公开
+    offset = 2**(l-1)
+    c_masked = offset + x + gamma * r_double_prime + r_prime
+    c = c_masked.reveal() 
+    
+    # Online Step 2: 明文取模 (修复点)
+    # 必须在取模前减去 offset，或者等价地减去 (offset % gamma)
+    c_prime = (c - offset) % gamma
+    
+    # Step 3 & 4: 判断 r' >= gamma
+    r_prime_int = sbitint.from_vec(r_prime_bits)
+    v_bool = r_prime_int >= gamma 
+    v = sint(v_bool) 
+    
+    # Step 5 & 6: LTZ (Less Than Zero) 判断
+    inner_term = c_prime - r_prime + v * gamma
+    u_bool = inner_term < 0
+    u = sint(u_bool) 
+    
+    # Step 7: 最终输出
+    result = c_prime - r_prime + gamma * (v + u)
+    
+    return result
+
+x_input = sint(64)
+q_val = 3329  # 比如 Kyber 里的 q
+gamma = 4
+
+x_H, x_L = decompose(x_input, gamma, q_val)
+
+print_ln("Input x = %s", x_input.reveal())
+print_ln("Input q = %s", q_val)
+print_ln("Input gamma = %s", gamma)
+print_ln("x_H = %s", x_H.reveal())
+print_ln("x_L = %s", x_L.reveal())
