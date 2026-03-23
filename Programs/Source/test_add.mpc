@@ -1,0 +1,8 @@
+# 参与方0输入一个秘密值
+a = sint.get_input_from(0)
+# 参与方1输入一个秘密值
+b = sint.get_input_from(1)
+# MPC计算加法
+c = a + b
+# 公开结果并打印
+print_ln('Result is: %s', c.reveal())

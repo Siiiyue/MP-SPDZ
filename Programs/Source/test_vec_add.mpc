@@ -1,0 +1,31 @@
+# test_poly_add.mpc
+
+# 1. 定义多项式的长度 (Dilithium 中是 256)
+N = 256
+
+# 2. 声明三个长度为 N 的 sint (Secret Integer) 数组
+# Array(大小, 数据类型)
+poly_a = Array(N, sint)
+poly_b = Array(N, sint)
+poly_c = Array(N, sint)
+
+# 3. 初始化数组 (为了测试，我们给它们赋一些初始的秘密值)
+# 注意：在实际的 Dilithium 中，这些值可能来自 PRG 采样或输入
+@for_range_opt(N)
+def _(i):
+    # 将常数转换为秘密共享值并赋值
+    poly_a[i] = sint(i)       # a = [0, 1, 2, ..., 255]
+    poly_b[i] = sint(1000)    # b = [1000, 1000, ..., 1000]
+
+# 4. 实现向量加法
+# 推荐方法：使用 @for_range_opt 装饰器，它会在编译时优化循环，减少虚拟机的指令数
+@for_range_opt(N)
+def _(i):
+    poly_c[i] = poly_a[i] + poly_b[i]
+
+# 5. 验证结果 (打印前 5 个元素看看)
+print_ln("--- 向量加法测试结果 ---")
+@for_range(5)
+def _(i):
+    # reveal() 会将秘密共享值还原为明文，仅用于测试和最终结果输出！
+    print_ln("poly_c[%s] = %s", i, poly_c[i].reveal())
