@@ -18,22 +18,21 @@ def decompose(x, gamma, q):
     
     # (b) & (c) Invoke LTZ and B2A 
     # In MP-SPDZ, '>' automatically returns an arithmetic secret bit (0 or 1)
-    h = x_prime_0 > (gamma / 2)
+    h = x_prime_0 > (gamma // 2)
     
     # (d) Compute [x_0]
-    x_0 = (1 - h) * x_prime_0 + h * (x_prime_0 - gamma)
+    x_0 = x_prime_0 - h * gamma
     
     # Step 3 & 4: Compute [t]
     # '==' automatically returns an arithmetic secret bit (0 or 1)
     t = (x_prime - x_0) == (q - 1)
     
     # Step 5: Compute HighBits [x_H]
-    # Note: We use integer division '// gamma' instead of multiplying by inverse 
     # to ensure it stays in the integer domain and avoids precision/inverse issues.
-    x_H = ((1 - t) * (x_prime - x_0)) * cint(gamma).__invert__
+    x_H = ((1 - t) * (x_prime - x_0)) / sint(gamma)
     
     # Step 6: Compute LowBits [x_L]
-    x_L = t * (x_0 - 1) + (1 - t) * x_0
+    x_L = x_0 - t
     
     return x_H, x_L
 
@@ -69,7 +68,7 @@ def mod(x, gamma, l=64):
     
     return result
 
-x_input = sint(64)
+x_input = sint([64, 65, 67])
 q_val = 3329  # 比如 Kyber 里的 q
 gamma = 4
 
